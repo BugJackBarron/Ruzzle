@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
 import unidecode
 import datetime
+
 from contextlib import ContextDecorator
 now=datetime.datetime.now
 
@@ -22,7 +24,6 @@ def genereDico(fichier) :
     #traitement du fichier pour éliminer les lignes inutiles
     Dictionnaire=[unidecode.unidecode(m.strip("\n").upper()) for m in Dictionnaire
                   if ("%" not in m) and (m != "\n")]
-    #Dictionnaire.sort()
     return Dictionnaire
     
 class Noeud:#Noeud du Trie
@@ -68,6 +69,7 @@ def estDansTrie(mot,trie) :
     >>> estDansTrie('SUPPLEMENTAIRE',Trie)
     True
     """
+    # Fonction au final utilisée uniquement pour quelques tests...
     if mot == '' :
         return trie.finMot
     else :
@@ -77,6 +79,9 @@ def estDansTrie(mot,trie) :
             return False
         
 def rechercheTriePrefixeMot(mot,trie) :
+    # Fonction qui vérifie non seulement si le mot est dans le Trie,
+    # mais aussi si le mot fourni peut être le début d'un autre mot du Trie.
+    # D'où le retour de 2 booléens..
     if mot == '' :
         return (True,trie.finMot)
     else :
@@ -105,7 +110,10 @@ class Grille :
         'K':5,'X':45,
         'L':601,'Y':30,
         'M':296,'Z':12}
+        # chaine correspond à une chaine de 10000 caractères 
+        # ayant les fréquences d'apparition des lettres en français.
         chaine=''.join([k*v for k,v in frequences.items()])
+        # Initialistation des variables de la grille
         self.lettres={i:choice(chaine) for i in range(self.taille**2)}
         self.listeVoisins={c:self._genereListeVoisin(c) 
                             for c in range(self.taille**2)}
@@ -116,7 +124,10 @@ class Grille :
         self.motsRestants=self.listeMotsGrille
         
     def _genereListeVoisin(self,c) :
-        """genre la liste des voisins de la case c"""
+        """genere la liste des voisins de la case c"""
+        # Ayant dès le départ imaginé des grilles de tailles supérieures à 4x4,
+        # j'ai mis au point cette fonction donnant les voisin d'une case 
+        # numérotée c, en fonction de la taille t d'un côté de la grille
         t=self.taille
         
         absc=c%t
@@ -136,6 +147,8 @@ class Grille :
         return[c+x++y*t for y in vy for x in vx if( x!=0 or y!=0 )]
         
     def motInGrille(self,mot,origine=None) :
+        # Fonction récursive cherchant si un mot est présent dans la grille...
+        # Inutile pour le projet...
         mot=mot.upper()
         if origine==None : #cas de début de recherche
             if mot=='' :
@@ -168,6 +181,7 @@ class Grille :
                     return False
     
     def _ChercheTouslesMots(self):
+        # Fonction cherchant  tous les mots présents dans une grille donnée.
         for c in range(self.taille**2) :
             self.caseVisitees.append(c)
             self._chercheLettreSuivante(self.lettres[c],c)
@@ -175,6 +189,8 @@ class Grille :
         self.caseVisitees=[]
     
     def _chercheLettreSuivante(self,motActuel,origine):
+        # Fonction récursive cherchant les suites de mots à partir d'une racine
+        # fournie en argument.
         cases_possibles=[c for c in self.listeVoisins[origine] 
                                     if c not in self.caseVisitees]
         if cases_possibles==[] :
@@ -199,35 +215,38 @@ class Grille :
             
         
     def afficheShell(self) :
+        # Affichage dans le shell de la grille
         for i in range(self.taille) :
             print("|".join([f"{self.lettres[j+i*self.taille]}" for j in range(self.taille)]))
             print("-"*(2*self.taille-1))
 
 
 if __name__ == "__main__" :
+    #En cas d'appel simple, génère un jeu dans le shell, très simple.
     Trie=Noeud()
     genereArbre(genereDico("dico.txt"),Trie)
     import doctest
     doctest.testmod()
     grille=Grille(Trie)
       
-#    Score=0
-#    while True :
-#        print(f"Nombre de mots restant à trouver : {len(grille.listeMotsGrilleV2)-len(grille.motsTrouves)}")
-#        print(f"Score : {Score}")
-#        mot=input('Entrez un mot :').upper()
-#        if mot=='' : break
-#        if mot in grille.motsTrouves :
-#            print("Déjà proposé !")
-#        elif grille.motInGrille(mot) and mot in grille.listeMotsGrilleV2 :
-#            
-#            grille.motsTrouves.append(mot)
-#            
-#            print(f"Mot correct ! +{len(mot)} points !")
-#            Score+=len(mot)
-#        else :
-#            print("Mot incorrect ! -2 points !")
-#            Score-=2
-#        grille.caseVisitees=[]
-#        grille.afficheShell()
-#    print("Fin du jeu")
+    Score=0
+    while True :
+        grille.afficheShell()
+        print(f"Nombre de mots restant à trouver : {len(grille.listeMotsGrille)-len(grille.motsTrouves)}")
+        print(f"Score : {Score}")
+        mot=input('Entrez un mot :').upper()
+        if mot=='' : break
+        if mot in grille.motsTrouves :
+            print("Déjà proposé !")
+        elif grille.motInGrille(mot) and mot in grille.listeMotsGrille :
+            
+            grille.motsTrouves.append(mot)
+            
+            print(f"Mot correct ! +{len(mot)} points !")
+            Score+=len(mot)
+        else :
+            print("Mot incorrect ! -2 points !")
+            Score-=2
+        grille.caseVisitees=[]
+        
+    print("Fin du jeu")

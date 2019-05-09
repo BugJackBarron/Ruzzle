@@ -1,18 +1,20 @@
+# -*- coding: utf-8 -*-
 from random import choice
 import pygame as pg
 from pygame.locals import * 
 import pickle
 import  GestDicoArbre as gda
+import string
 LARGEUR=1000
 HAUTEUR=600
 TPSMAX=60000 #temps max d'une partie en millisecondes
 
 
 class Player :
-    def __init__(self,score,nom,niveau) :
+    def __init__(self,score,nom) :
         self.score=score
         self.nom=nom
-        self.niveau=niveau
+        
     
     
         
@@ -80,6 +82,7 @@ class GuiInfo :
         #initialisation
         self.score=0
         self.guiGrille=guiGrille
+        self.mot="".join([grille.lettres[i] for i in self.guiGrille.selected])
         self.fonte=pg.font.SysFont('scheherazade',int(400//self.guiGrille.grille.taille*0.5))
         #Initialisation de l'affichage du score
         self.ScoreFix=self.fonte.render(f"SCORE : {self.score:03d}",False,(0, 255, 255))
@@ -102,6 +105,7 @@ class GuiInfo :
         self.timeFix=self.fonte.render(f"""TEMPS RESTANT : {self.tpsDepart//1000}""",False,(0, 255, 255))
         self.timeFixRect=self.timeFix.get_rect()
         self.timeFixRect.midbottom=(750,500)
+        
         
         
     def augmenteScore(self,valeur):
@@ -154,16 +158,13 @@ class GuiInfo :
             else :
                 self.timeFix=self.fonte.render(f"""TEMPS RESTANT : {tpsrestant//1000}""",False,(255, 0, 0))
     
-       
-    def affiche(self,aide=False) :
-        #Actualisation de la fenetre
-        fenetre.blit(self.ScoreFix,self.ScoreFixRect)
-        fenetre.blit(self.MotsRestantsFix,self.MotsRestantsFixRect)
-        fenetre.blit(self.timeFix,self.timeFixRect)
-        if aide :
-            fenetre.blit(self.suggestionFix,self.suggestionFixRect)
-        else :
-            self.AffichageHelp()
+    def afficheMotCourant(self):
+        self.mot="".join([grille.lettres[i] for i in self.guiGrille.selected])
+        mot=self.fonte.render(f"{self.mot}",False,(0, 255, 255))
+        motRect=mot.get_rect()
+        motRect.center = (300,50)
+        fenetre.blit(mot,motRect)
+    
     
     def afficheListe(self,montreAffichage) :
         #Génère un affichage de la liste des mots déjà trouvés, et agrandit ou rapetisse
@@ -183,6 +184,17 @@ class GuiInfo :
             affMotRect=affMot.get_rect()
             affMotRect.center=(LARGEUR+50+100*(pos%2),100+30*(pos//2))
             fenetre.blit(affMot,affMotRect)
+            
+    def affiche(self,aide=False) :
+        #Actualisation de la fenetre
+        fenetre.blit(self.ScoreFix,self.ScoreFixRect)
+        fenetre.blit(self.MotsRestantsFix,self.MotsRestantsFixRect)
+        fenetre.blit(self.timeFix,self.timeFixRect)
+        self.afficheMotCourant()
+        if aide :
+            fenetre.blit(self.suggestionFix,self.suggestionFixRect)
+        else :
+            self.AffichageHelp()
 
 
 ###############################
@@ -193,6 +205,10 @@ class GuiInfo :
 def  game(grille,isThereSnd=True):
     # Fonction gérant une partie, utilisant une grille passée en argument,
     # et éventuellement un argument booléen pour gérer la présence du son
+    # Elle n'est pas du tout factorisée....
+    # J'ai rajouté des fonctionnalités ( = bugs) au fur et à mesure
+    # Ce qu'il ne faut surtout pas faire avec des élèves...
+    
     Continuer=True
     #Chargement des images et création des rects correspondants
     ImgFond=pg.image.load("Images/FondRuzzle.png").convert()
@@ -271,7 +287,7 @@ def  game(grille,isThereSnd=True):
         else :#Si le clique droit n'est pas appuyé
             
             if len(guiGrille.selected)>1 :#On cherche des mots de taille >1
-                #Création du mot
+                
                 mot="".join([grille.lettres[i] for i in guiGrille.selected])
                 if persistenceAffichageEcoulee== None :#Gestion de la persistence de l'affichage
                     persistenceAffichageDebut = pg.time.get_ticks()
@@ -336,6 +352,10 @@ def  game(grille,isThereSnd=True):
         if tpsrestant<=0 :
             Continuer=False
         guiInfo.affichageTempsRestant(tpsrestant)
+        
+        
+        
+        
         
         
         fenetre.blit(ImgFond,(0,0))
@@ -432,9 +452,90 @@ def chargement():
 
 def HighScore(score):
     """ Fonction gérant l'écran de fin, et éventuellement l'intégration au tableau de HighScore"""
-    def ajouteHighScore():
-        pass
+    def trieHS(player,HS) :
+        #Insertion du nouveau High Score
+        for i,el in enumerate(HS) :
+            if player.score<=el.score :
+                HS.insert(i,player)
+                return HS[1:]
+        HS.append(player)                
+        return HS[1:]
         
+                
+    def ajouteHighScore(score,HS):
+        # fonction demandant au joueur de donner son nom en cas de top 10,
+        # puis sauvant ce score dans le fichier "highscore.ruz"
+        # Je sais, c'est très très moche, mais je n'ai plus le courage de factoriser...
+        global fenetre
+        fonte=pg.font.SysFont('scheherazade',60)
+        imgFond=pg.image.load("Images/FondRuzzle.png").convert_alpha()
+        texte1=fonte.render("Bravo ! Vous entrez dans le top 10 !",False,(0,255,255))
+        texte1Rect=texte1.get_rect()
+        texte1Rect.center=(LARGEUR//2,50)
+        texte2=fonte.render("Veuillez saisir votre nom !",False,(0,255,255))
+        texte2Rect=texte2.get_rect()
+        texte2Rect.center=(LARGEUR//2,150)
+        zoneClique=pg.transform.scale(pg.image.load("Images/imgBouton.png").convert_alpha(),(200,50))
+        zoneCliqueRect=zoneClique.get_rect()
+        zoneCliqueRect.center=(LARGEUR//2,400)
+        texteClique=fonte.render("Valider",False,(255,0,0))
+        texteCliqueRect=texteClique.get_rect()
+        texteCliqueRect.center=zoneCliqueRect.center
+        
+        nom=''
+        
+        
+        fenetre=pg.display.set_mode((LARGEUR,HAUTEUR))    
+        while True :
+            fenetre.blit(imgFond,(0,0))
+            
+            nomAff=fonte.render(f"{nom+'-'*(8-len(nom))}",False,(0,255,255))
+            nomAffRect=nomAff.get_rect()
+            nomAffRect.center=(LARGEUR//2,250)
+            
+            fenetre.blit(texte1,texte1Rect)
+            fenetre.blit(texte2,texte2Rect)
+            fenetre.blit(nomAff,nomAffRect)
+            fenetre.blit(zoneClique,zoneCliqueRect)
+            fenetre.blit(texteClique,texteCliqueRect)
+            
+            
+            for evenement in pg.event.get() :
+                if evenement.type == QUIT :
+                    return HS
+                if evenement.type == KEYDOWN :
+                    if evenement.unicode in string.ascii_letters or evenement.unicode in string.digits:
+                        if len(nom)<=7 :
+                            nom+=evenement.unicode
+                            nom=nom.upper()
+                    if evenement.key == K_BACKSPACE :
+                        if nom !=[] :
+                            nom=nom[:-1]
+                if evenement.type == MOUSEBUTTONUP :
+                    posActuelle=pg.mouse.get_pos()
+                    if zoneCliqueRect.collidepoint(posActuelle) :
+                        player=Player(score,nom)
+                        HS=trieHS(player,HS)
+                        with open("highscore.ruz","bw") as file :
+                            pickle.dump(HS,file)
+                        return HS
+                        
+                            
+                    
+            
+            pg.display.update()
+            ##Fin fonction ajouteHighScore
+    
+    #Debut fonction HighScore
+    global fenetre        
+            
+    with open("highscore.ruz",'br') as file :
+        #par défaut, HS est une liste des scores par ordre croissant
+        HS = pickle.load(file)
+    if  score>HS[0].score :#Si le score du joueur le fait rentrer dans le High Score
+        HS=ajouteHighScore(score,HS)       
+        
+    #preparation de l'affichage
     fonte=pg.font.SysFont('scheherazade',40)
     fenetre=pg.display.set_mode((LARGEUR,HAUTEUR))
     imgFond=pg.image.load("Images/FondRuzzle.png").convert_alpha()
@@ -451,12 +552,9 @@ def HighScore(score):
     quitTxtrect.center=imgBoutonQuit.center
 
     
-    with open("highscore.ruz",'br') as file :
-        #par défaut, HS est une liste des scores par ordre croissant
-        HS = pickle.load(file)
-    if  score>HS[0].score :
-        ajouteHighScore()
+   
     while True :
+        #boucle principale et gestionnaire d'événements
         for evenement in pg.event.get() :
             if evenement.type == QUIT :
                 return False
@@ -468,24 +566,28 @@ def HighScore(score):
                     return True
         
             
-        
+        fenetre.blit(imgFond,(0,0))
         for i,p in enumerate(HS) :
             plTxt=fonte.render(f"{p.nom} : {p.score}",False,(0,255,255))
             fenetre.blit(plTxt,(LARGEUR//2-100,500-(i*45)))
-        fenetre.blit(imgFond,(0,0))
+        
         fenetre.blit(imgBouton,imgBoutonRejouer)
         fenetre.blit(imgBouton,imgBoutonQuit)
         fenetre.blit(rejouerTxt,rejouerTxtRect)
         fenetre.blit(quitTxt,quitTxtrect)        
         pg.display.update()
     
-    
-
+def initialiseHS():
+    #Fonction inutile sauf pour réinitialiser le fichier de High Score
+    HS=[Player(i,'Player1') for i in range(10)]
+    with open("highscore.ruz","bw") as file :
+        pickle.dump(HS,file)
                 
 
     
 
 if  __name__  ==  "__main__" :
+    
     pg.init()
     fenetre=pg.display.set_mode((LARGEUR,HAUTEUR))
     jouer=True 
